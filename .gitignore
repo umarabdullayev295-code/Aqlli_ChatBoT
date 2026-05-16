@@ -1,0 +1,27 @@
+# API kalitlar va maxfiy fayllar - HECH QACHON GitHub ga yuklanmasin!
+.env
+
+# Suhbatlar tarixi (foydalanuvchi ma'lumotlari)
+data/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS fayllar
+.DS_Store
+Thumbs.db
+
+# Log fayllar
+*.log

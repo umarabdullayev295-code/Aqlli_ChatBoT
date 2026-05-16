@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aqlli ChatBot - AI Yordamchi</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="dark-theme">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">🤖</div>
+        <div class="logo-text">
+          <span class="logo-title">Aqlli</span>
+          <span class="logo-sub">ChatBot</span>
+        </div>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" title="Yopish">&#x2715;</button>
+    </div>
+
+    <button class="new-chat-btn" id="newChatBtn">
+      <span class="btn-icon">&#43;</span>
+      <span>Yangi suhbat</span>
+    </button>
+
+    <div class="conversations-section">
+      <div class="section-label">Suhbatlar tarixi</div>
+      <div class="conversations-list" id="conversationsList">
+        <div class="empty-history">
+          <div class="empty-icon">💬</div>
+          <p>Hali suhbat yo'q</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="model-selector-wrap">
+        <label class="model-label">AI Model</label>
+        <select class="model-select" id="modelSelect">
+          <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B ⚡ (Bepul)</option>
+          <option value="mistralai/mistral-7b-instruct:free">Mistral 7B 🚀 (Bepul)</option>
+          <option value="deepseek/deepseek-r1:free">DeepSeek R1 🧠 (Bepul)</option>
+          <option value="google/gemma-3-27b-it:free">Gemma 3 27B 💎 (Bepul)</option>
+          <option value="qwen/qwq-32b:free">Qwen QwQ 32B 🌟 (Bepul)</option>
+        </select>
+      </div>
+      <div class="theme-toggle-wrap">
+        <button class="theme-toggle-btn" id="themeToggle" title="Tema o'zgartirish">
+          <span id="themeIcon">☀️</span>
+          <span id="themeLabel">Yorug' tema</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-wrapper">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn" title="Menyu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-title">
+        <span id="currentChatTitle">Yangi suhbat</span>
+      </div>
+      <div class="topbar-actions">
+        <div id="apiStatus" class="api-badge demo">Demo rejim</div>
+        <button class="clear-btn" id="clearBtn" title="Suhbatni o'chirish">🗑️</button>
+      </div>
+    </header>
+
+    <!-- Chat Area -->
+    <main class="chat-area" id="chatArea">
+      <div class="welcome-screen" id="welcomeScreen">
+        <div class="welcome-content">
+          <div class="welcome-robot">🤖</div>
+          <h1 class="welcome-title">Aqlli ChatBot</h1>
+          <p class="welcome-subtitle">Sizning shaxsiy AI yordamchingiz</p>
+          <div class="feature-grid">
+            <div class="feature-card" onclick="sendQuickMessage('O\'zingni tanishtir')">
+              <div class="feature-icon">🧠</div>
+              <div class="feature-text">
+                <strong>Har narsa haqida</strong>
+                <span>Bilim va ma'lumot</span>
+              </div>
+            </div>
+            <div class="feature-card" onclick="sendQuickMessage('Python dasturlash bo\\'yicha misollar ko\\'rsating')">
+              <div class="feature-icon">💻</div>
+              <div class="feature-text">
+                <strong>Dasturlash</strong>
+                <span>Kod va texnologiya</span>
+              </div>
+            </div>
+            <div class="feature-card" onclick="sendQuickMessage('Menga ijodiy she\\'r yozing')">
+              <div class="feature-icon">✍️</div>
+              <div class="feature-text">
+                <strong>Ijodiy yozuv</strong>
+                <span>Matn va tarjima</span>
+              </div>
+            </div>
+            <div class="feature-card" onclick="sendQuickMessage('Hayotda muvaffaqiyat sirlarini ayting')">
+              <div class="feature-icon">💡</div>
+              <div class="feature-text">
+                <strong>Maslahat</strong>
+                <span>Hayot va ish</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messagesContainer"></div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="input-area">
+      <div class="input-wrapper">
+        <div class="input-box">
+          <textarea
+            id="messageInput"
+            class="message-textarea"
+            placeholder="Xabaringizni yozing... (Enter - yuborish, Shift+Enter - yangi qator)"
+            rows="1"
+            maxlength="4000"
+          ></textarea>
+          <div class="input-actions">
+            <span class="char-counter" id="charCounter">0/4000</span>
+            <button class="send-btn" id="sendBtn" title="Yuborish">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p class="input-hint">
+          AI javoblari har doim ham to'liq aniq bo'lmasligi mumkin. Muhim ma'lumotlarni tekshiring.
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <div class="modal-icon">🗑️</div>
+      <h3>Suhbatni o'chirish</h3>
+      <p>Bu suhbatni o'chirishni xohlaysizmi? Bu amalni qaytarib bo'lmaydi.</p>
+      <div class="modal-actions">
+        <button class="modal-btn cancel" id="cancelDelete">Bekor qilish</button>
+        <button class="modal-btn confirm" id="confirmDelete">O'chirish</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
