@@ -1,118 +1,85 @@
-/* ===== AQLLI CHATBOT - Frontend Logic ===== */
+/* ===== AQLLI CHATBOT - Streaming Frontend ===== */
 
-// State
 const state = {
   currentConvId: null,
   isLoading: false,
   isDarkTheme: true,
   pendingDeleteId: null,
-  hasApiKey: false,
   selectedModel: 'meta-llama/llama-3.3-70b-instruct:free',
 };
 
-// DOM Elements
-const sidebar = document.getElementById('sidebar');
-const sidebarToggle = document.getElementById('sidebarToggle');
-const menuBtn = document.getElementById('menuBtn');
-const newChatBtn = document.getElementById('newChatBtn');
-const conversationsList = document.getElementById('conversationsList');
-const chatArea = document.getElementById('chatArea');
-const messagesContainer = document.getElementById('messagesContainer');
-const welcomeScreen = document.getElementById('welcomeScreen');
-const messageInput = document.getElementById('messageInput');
-const sendBtn = document.getElementById('sendBtn');
-const charCounter = document.getElementById('charCounter');
-const currentChatTitle = document.getElementById('currentChatTitle');
-const apiStatus = document.getElementById('apiStatus');
-const clearBtn = document.getElementById('clearBtn');
-const themeToggle = document.getElementById('themeToggle');
-const themeIcon = document.getElementById('themeIcon');
-const themeLabel = document.getElementById('themeLabel');
-const modelSelect = document.getElementById('modelSelect');
-const deleteModal = document.getElementById('deleteModal');
-const cancelDelete = document.getElementById('cancelDelete');
-const confirmDelete = document.getElementById('confirmDelete');
+const $ = id => document.getElementById(id);
+
+const sidebar         = $('sidebar');
+const newChatBtn      = $('newChatBtn');
+const conversationsList = $('conversationsList');
+const chatArea        = $('chatArea');
+const messagesContainer = $('messagesContainer');
+const welcomeScreen   = $('welcomeScreen');
+const messageInput    = $('messageInput');
+const sendBtn         = $('sendBtn');
+const charCounter     = $('charCounter');
+const currentChatTitle = $('currentChatTitle');
+const apiStatus       = $('apiStatus');
+const clearBtn        = $('clearBtn');
+const themeToggle     = $('themeToggle');
+const themeIcon       = $('themeIcon');
+const themeLabel      = $('themeLabel');
+const modelSelect     = $('modelSelect');
+const deleteModal     = $('deleteModal');
+const cancelDelete    = $('cancelDelete');
+const confirmDelete   = $('confirmDelete');
 
 // ===== INIT =====
 async function init() {
   await checkSettings();
   await loadConversations();
-  setupEventListeners();
+  setupEvents();
   loadTheme();
 }
 
 async function checkSettings() {
   try {
-    const res = await fetch('/api/settings');
-    const data = await res.json();
-    state.hasApiKey = data.has_api_key;
-    if (state.hasApiKey) {
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    if (d.has_api_key) {
       apiStatus.textContent = 'Jonli rejim';
       apiStatus.className = 'api-badge live';
     } else {
       apiStatus.textContent = 'Demo rejim';
       apiStatus.className = 'api-badge demo';
     }
-  } catch (e) {
-    console.error('Settings error:', e);
-  }
+  } catch {}
 }
 
-// ===== EVENT LISTENERS =====
-function setupEventListeners() {
-  // Sidebar toggle
-  sidebarToggle.addEventListener('click', toggleSidebar);
-  menuBtn.addEventListener('click', toggleSidebar);
-
-  // New chat
+// ===== EVENTS =====
+function setupEvents() {
+  $('sidebarToggle').addEventListener('click', toggleSidebar);
+  $('menuBtn').addEventListener('click', toggleSidebar);
   newChatBtn.addEventListener('click', startNewChat);
-
-  // Send message
   sendBtn.addEventListener('click', sendMessage);
-  messageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
+  clearBtn.addEventListener('click', () => { if (state.currentConvId) showDeleteModal(state.currentConvId); });
+  themeToggle.addEventListener('click', toggleTheme);
+  cancelDelete.addEventListener('click', hideDeleteModal);
+  confirmDelete.addEventListener('click', executeDelete);
+  deleteModal.addEventListener('click', e => { if (e.target === deleteModal) hideDeleteModal(); });
 
-  // Auto-resize textarea
+  modelSelect.addEventListener('change', () => { state.selectedModel = modelSelect.value; });
+
+  messageInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
   messageInput.addEventListener('input', () => {
     autoResize(messageInput);
     const len = messageInput.value.length;
     charCounter.textContent = `${len}/4000`;
     charCounter.style.color = len > 3500 ? 'var(--accent-red)' : 'var(--text-muted)';
   });
-
-  // Clear current chat
-  clearBtn.addEventListener('click', () => {
-    if (state.currentConvId) showDeleteModal(state.currentConvId);
-  });
-
-  // Theme toggle
-  themeToggle.addEventListener('click', toggleTheme);
-
-  // Model select
-  modelSelect.addEventListener('change', () => {
-    state.selectedModel = modelSelect.value;
-  });
-
-  // Delete modal
-  cancelDelete.addEventListener('click', hideDeleteModal);
-  confirmDelete.addEventListener('click', executeDelete);
-  deleteModal.addEventListener('click', (e) => {
-    if (e.target === deleteModal) hideDeleteModal();
-  });
 }
 
-function autoResize(textarea) {
-  textarea.style.height = 'auto';
-  textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
-}
-
-// ===== SIDEBAR =====
-function toggleSidebar() {
-  sidebar.classList.toggle('hidden');
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 150) + 'px';
 }
 
 // ===== THEME =====
@@ -121,153 +88,156 @@ function toggleTheme() {
   applyTheme();
   localStorage.setItem('theme', state.isDarkTheme ? 'dark' : 'light');
 }
-
 function applyTheme() {
   document.body.classList.toggle('dark-theme', state.isDarkTheme);
   document.body.classList.toggle('light-theme', !state.isDarkTheme);
   themeIcon.textContent = state.isDarkTheme ? '☀️' : '🌙';
-  themeLabel.textContent = state.isDarkTheme ? 'Yorug\' tema' : 'Qorong\'u tema';
+  themeLabel.textContent = state.isDarkTheme ? "Yorug' tema" : "Qorong'u tema";
 }
-
 function loadTheme() {
-  const saved = localStorage.getItem('theme');
-  state.isDarkTheme = saved !== 'light';
+  state.isDarkTheme = localStorage.getItem('theme') !== 'light';
   applyTheme();
 }
+
+// ===== SIDEBAR =====
+function toggleSidebar() { sidebar.classList.toggle('hidden'); }
 
 // ===== CONVERSATIONS =====
 async function loadConversations() {
   try {
-    const res = await fetch('/api/conversations');
-    const convs = await res.json();
-    renderConversationList(convs);
-  } catch (e) {
-    console.error('Load conversations error:', e);
-  }
+    const r = await fetch('/api/conversations');
+    renderConvList(await r.json());
+  } catch {}
 }
 
-function renderConversationList(convs) {
-  if (!convs || convs.length === 0) {
-    conversationsList.innerHTML = `
-      <div class="empty-history">
-        <div class="empty-icon">💬</div>
-        <p>Hali suhbat yo'q</p>
-      </div>`;
+function renderConvList(convs) {
+  if (!convs || !convs.length) {
+    conversationsList.innerHTML = `<div class="empty-history"><div class="empty-icon">💬</div><p>Hali suhbat yo'q</p></div>`;
     return;
   }
-
-  conversationsList.innerHTML = convs.map(conv => {
-    const date = formatDate(conv.created_at);
-    const isActive = conv.id === state.currentConvId;
-    return `
-      <div class="conversation-item ${isActive ? 'active' : ''}" 
-           data-id="${conv.id}" onclick="loadConversation('${conv.id}')">
-        <div class="conv-info">
-          <div class="conv-title">${escapeHtml(conv.title)}</div>
-          <div class="conv-meta">${date} · ${conv.message_count} xabar</div>
-        </div>
-        <button class="conv-delete" onclick="event.stopPropagation(); showDeleteModal('${conv.id}')" title="O'chirish">✕</button>
-      </div>`;
-  }).join('');
+  conversationsList.innerHTML = convs.map(c => `
+    <div class="conversation-item ${c.id === state.currentConvId ? 'active' : ''}"
+         data-id="${c.id}" onclick="loadConversation('${c.id}')">
+      <div class="conv-info">
+        <div class="conv-title">${escHtml(c.title)}</div>
+        <div class="conv-meta">${fmtDate(c.created_at)} · ${c.message_count} xabar</div>
+      </div>
+      <button class="conv-delete" onclick="event.stopPropagation();showDeleteModal('${c.id}')" title="O'chirish">✕</button>
+    </div>`).join('');
 }
 
 async function loadConversation(convId) {
   try {
-    const res = await fetch(`/api/conversations/${convId}`);
-    const conv = await res.json();
+    const r = await fetch(`/api/conversations/${convId}`);
+    const conv = await r.json();
     state.currentConvId = convId;
     currentChatTitle.textContent = conv.title || 'Suhbat';
-
-    // Clear and show messages
     messagesContainer.innerHTML = '';
     welcomeScreen.style.display = 'none';
     messagesContainer.style.display = 'flex';
-
-    conv.messages.forEach(msg => {
-      appendMessage(msg.role, msg.content, msg.timestamp, false);
-    });
-
-    scrollToBottom();
-    await loadConversations(); // refresh list to show active
-  } catch (e) {
-    console.error('Load conversation error:', e);
-  }
+    conv.messages.forEach(m => appendMessage(m.role, m.content, m.timestamp));
+    scrollBottom();
+    await loadConversations();
+  } catch {}
 }
 
 async function startNewChat() {
   try {
-    const res = await fetch('/api/conversations/new', { method: 'POST' });
-    const conv = await res.json();
+    const r = await fetch('/api/conversations/new', { method: 'POST' });
+    const conv = await r.json();
     state.currentConvId = conv.id;
     currentChatTitle.textContent = 'Yangi suhbat';
     messagesContainer.innerHTML = '';
     messagesContainer.style.display = 'none';
     welcomeScreen.style.display = 'flex';
     await loadConversations();
-  } catch (e) {
-    console.error('New chat error:', e);
-  }
+  } catch {}
 }
 
-// ===== SEND MESSAGE =====
+// ===== STREAMING SEND =====
 async function sendMessage() {
-  const message = messageInput.value.trim();
-  if (!message || state.isLoading) return;
+  const msg = messageInput.value.trim();
+  if (!msg || state.isLoading) return;
 
-  // If no current conversation, create one
-  if (!state.currentConvId) {
-    await startNewChat();
-  }
+  if (!state.currentConvId) await startNewChat();
 
-  // Show user message
-  appendMessage('user', message, new Date().toISOString(), true);
+  appendMessage('user', msg, new Date().toISOString());
   messageInput.value = '';
   messageInput.style.height = 'auto';
   charCounter.textContent = '0/4000';
-
-  // Hide welcome, show messages
   welcomeScreen.style.display = 'none';
   messagesContainer.style.display = 'flex';
 
-  // Show typing indicator
-  const typingEl = showTyping();
   state.isLoading = true;
   sendBtn.disabled = true;
 
+  // Bot bubble - streaming uchun bo'sh yaratamiz
+  const botBubble = createStreamingBubble();
+  scrollBottom();
+
+  let fullText = '';
+  let hasError = false;
+
   try {
-    const res = await fetch('/api/chat', {
+    const resp = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message,
+        message: msg,
         conversation_id: state.currentConvId,
         model: state.selectedModel,
       }),
     });
 
-    const data = await res.json();
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-    typingEl.remove();
-    state.isLoading = false;
-    sendBtn.disabled = false;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
 
-    if (data.error) {
-      appendError(data.error);
-    } else {
-      appendMessage('assistant', data.response, new Date().toISOString(), true);
-      if (data.title) {
-        currentChatTitle.textContent = data.title;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+
+        try {
+          const obj = JSON.parse(raw);
+
+          if (obj.error) {
+            botBubble.innerHTML = `<span style="color:var(--accent-red)">⚠️ ${escHtml(obj.error)}</span>`;
+            hasError = true;
+            break;
+          }
+
+          if (obj.token) {
+            fullText += obj.token;
+            botBubble.innerHTML = renderMarkdown(fullText);
+            highlightCode(botBubble);
+            scrollBottom();
+          }
+
+          if (obj.done) {
+            state.currentConvId = obj.conv_id;
+            if (obj.title) currentChatTitle.textContent = obj.title;
+            await loadConversations();
+          }
+        } catch {}
       }
-      await loadConversations();
+      if (hasError) break;
     }
   } catch (e) {
-    typingEl.remove();
-    state.isLoading = false;
-    sendBtn.disabled = false;
-    appendError('Ulanishda xatolik. Internet aloqasini tekshiring.');
+    botBubble.innerHTML = `<span style="color:var(--accent-red)">⚠️ Ulanish xatosi. Qayta urinib ko'ring.</span>`;
   }
 
-  scrollToBottom();
+  state.isLoading = false;
+  sendBtn.disabled = false;
+  scrollBottom();
 }
 
 function sendQuickMessage(text) {
@@ -275,170 +245,118 @@ function sendQuickMessage(text) {
   sendMessage();
 }
 
-// ===== RENDER MESSAGES =====
-function appendMessage(role, content, timestamp, animate) {
-  const isUser = role === 'user';
-  const time = formatTime(timestamp);
-  const rendered = renderMarkdown(content);
-
-  const messageEl = document.createElement('div');
-  messageEl.className = `message ${isUser ? 'user' : 'bot'}`;
-  messageEl.innerHTML = `
-    <div class="avatar ${isUser ? 'user' : 'bot'}">${isUser ? '👤' : '🤖'}</div>
+// ===== DOM HELPERS =====
+function createStreamingBubble() {
+  const wrap = document.createElement('div');
+  wrap.className = 'message bot';
+  wrap.innerHTML = `
+    <div class="avatar bot">🤖</div>
     <div class="message-content">
-      <div class="bubble">${rendered}</div>
-      <div class="message-time">${time}</div>
-      <div class="message-actions">
-        <button class="action-btn" onclick="copyMessage(this)" data-text="${escapeAttr(content)}">📋 Nusxa</button>
+      <div class="bubble streaming-bubble">
+        <span class="cursor-blink">▋</span>
       </div>
     </div>`;
-
-  messagesContainer.appendChild(messageEl);
-
-  // Syntax highlight code blocks
-  messageEl.querySelectorAll('pre code').forEach(block => {
-    hljs.highlightElement(block);
-    // Add copy button to code blocks
-    const pre = block.parentElement;
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'copy-code-btn';
-    copyBtn.textContent = 'Nusxa';
-    copyBtn.onclick = () => {
-      navigator.clipboard.writeText(block.innerText).then(() => {
-        copyBtn.textContent = '✓ Nusxalandi';
-        setTimeout(() => { copyBtn.textContent = 'Nusxa'; }, 2000);
-      });
-    };
-    pre.style.position = 'relative';
-    pre.appendChild(copyBtn);
-  });
-
-  if (animate) scrollToBottom();
+  messagesContainer.appendChild(wrap);
+  const bubble = wrap.querySelector('.bubble');
+  return bubble;
 }
 
-function showTyping() {
-  const el = document.createElement('div');
-  el.className = 'typing-indicator';
-  el.innerHTML = `
-    <div class="avatar bot">🤖</div>
-    <div class="typing-bubble">
-      <span class="typing-dot"></span>
-      <span class="typing-dot"></span>
-      <span class="typing-dot"></span>
+function appendMessage(role, content, timestamp) {
+  const isUser = role === 'user';
+  const wrap = document.createElement('div');
+  wrap.className = `message ${isUser ? 'user' : 'bot'}`;
+  wrap.innerHTML = `
+    <div class="avatar ${isUser ? 'user' : 'bot'}">${isUser ? '👤' : '🤖'}</div>
+    <div class="message-content">
+      <div class="bubble">${isUser ? escHtml(content).replace(/\n/g,'<br>') : renderMarkdown(content)}</div>
+      <div class="message-time">${fmtTime(timestamp)}</div>
+      <div class="message-actions">
+        <button class="action-btn" onclick="copyText(this)" data-text="${escAttr(content)}">📋 Nusxa</button>
+      </div>
     </div>`;
-  messagesContainer.appendChild(el);
-  scrollToBottom();
-  return el;
+  messagesContainer.appendChild(wrap);
+  highlightCode(wrap);
 }
 
-function appendError(msg) {
-  const el = document.createElement('div');
-  el.className = 'error-message';
-  el.textContent = '⚠️ ' + msg;
-  messagesContainer.appendChild(el);
-  scrollToBottom();
+function highlightCode(el) {
+  el.querySelectorAll('pre code').forEach(block => {
+    if (window.hljs) {
+      hljs.highlightElement(block);
+      const pre = block.parentElement;
+      if (!pre.querySelector('.copy-code-btn')) {
+        const btn = document.createElement('button');
+        btn.className = 'copy-code-btn';
+        btn.textContent = 'Nusxa';
+        btn.onclick = () => {
+          navigator.clipboard.writeText(block.innerText).then(() => {
+            btn.textContent = '✓';
+            setTimeout(() => btn.textContent = 'Nusxa', 2000);
+          });
+        };
+        pre.style.position = 'relative';
+        pre.appendChild(btn);
+      }
+    }
+  });
+}
+
+function scrollBottom() {
+  setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 30);
 }
 
 // ===== DELETE =====
-function showDeleteModal(convId) {
-  state.pendingDeleteId = convId;
-  deleteModal.classList.add('show');
-}
-
-function hideDeleteModal() {
-  state.pendingDeleteId = null;
-  deleteModal.classList.remove('show');
-}
-
+function showDeleteModal(id) { state.pendingDeleteId = id; deleteModal.classList.add('show'); }
+function hideDeleteModal() { state.pendingDeleteId = null; deleteModal.classList.remove('show'); }
 async function executeDelete() {
   if (!state.pendingDeleteId) return;
-  try {
-    await fetch(`/api/conversations/${state.pendingDeleteId}`, { method: 'DELETE' });
-    if (state.pendingDeleteId === state.currentConvId) {
-      state.currentConvId = null;
-      currentChatTitle.textContent = 'Yangi suhbat';
-      messagesContainer.innerHTML = '';
-      messagesContainer.style.display = 'none';
-      welcomeScreen.style.display = 'flex';
-    }
-    hideDeleteModal();
-    await loadConversations();
-    showToast('Suhbat o\'chirildi');
-  } catch (e) {
-    console.error('Delete error:', e);
+  await fetch(`/api/conversations/${state.pendingDeleteId}`, { method: 'DELETE' });
+  if (state.pendingDeleteId === state.currentConvId) {
+    state.currentConvId = null;
+    currentChatTitle.textContent = 'Yangi suhbat';
+    messagesContainer.innerHTML = '';
+    messagesContainer.style.display = 'none';
+    welcomeScreen.style.display = 'flex';
   }
+  hideDeleteModal();
+  await loadConversations();
+  showToast("Suhbat o'chirildi");
 }
 
-// ===== UTILITIES =====
+// ===== UTILS =====
 function renderMarkdown(text) {
-  try {
-    marked.setOptions({
-      breaks: true,
-      gfm: true,
-      sanitize: false,
-    });
-    return marked.parse(text);
-  } catch (e) {
-    return escapeHtml(text).replace(/\n/g, '<br>');
-  }
+  try { return marked.parse(text); }
+  catch { return escHtml(text).replace(/\n/g, '<br>'); }
 }
-
-function scrollToBottom() {
-  setTimeout(() => {
-    chatArea.scrollTop = chatArea.scrollHeight;
-  }, 50);
+function escHtml(t) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(t));
+  return d.innerHTML;
 }
-
-function formatTime(isoString) {
-  try {
-    const d = new Date(isoString);
-    return d.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return '';
-  }
+function escAttr(t) { return t.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function fmtTime(iso) {
+  try { return new Date(iso).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }); }
+  catch { return ''; }
 }
-
-function formatDate(isoString) {
+function fmtDate(iso) {
   try {
-    const d = new Date(isoString);
-    const now = new Date();
-    const diff = now - d;
+    const d = new Date(iso), now = new Date(), diff = now - d;
     if (diff < 86400000) return 'Bugun';
     if (diff < 172800000) return 'Kecha';
     return d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' });
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.appendChild(document.createTextNode(text));
-  return div.innerHTML;
-}
-
-function escapeAttr(text) {
-  return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function copyMessage(btn) {
-  const text = btn.dataset.text;
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '✓ Nusxalandi';
-    setTimeout(() => { btn.textContent = orig; }, 2000);
+function copyText(btn) {
+  navigator.clipboard.writeText(btn.dataset.text).then(() => {
+    const o = btn.textContent; btn.textContent = '✓ Nusxalandi';
+    setTimeout(() => btn.textContent = o, 2000);
   });
 }
-
-function showToast(message) {
-  const existing = document.querySelector('.toast');
-  if (existing) existing.remove();
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
+function showToast(msg) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
 }
 
-// ===== START =====
 init();

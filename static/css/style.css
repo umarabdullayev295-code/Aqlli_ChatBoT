@@ -824,6 +824,19 @@ body {
   .welcome-title { font-size: 24px; }
 }
 
+/* ===== STREAMING CURSOR ===== */
+.cursor-blink {
+  display: inline-block;
+  animation: blink 0.8s step-end infinite;
+  color: var(--accent-primary);
+  font-weight: bold;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.streaming-bubble { min-width: 40px; }
+
 /* ===== ERROR STATE ===== */
 .error-message {
   background: rgba(248, 81, 73, 0.1);
