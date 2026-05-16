@@ -35,6 +35,15 @@ MODELS = [
     {"id": "deepseek/deepseek-r1:free",                "name": "DeepSeek R1 🧠"},
 ]
 
+# Rate limit bo'lganda avtomatik sinab ko'riladigan modellar
+FALLBACK_CHAIN = [
+    "mistralai/mistral-7b-instruct:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "google/gemma-3-12b-it:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "microsoft/phi-3-mini-128k-instruct:free",
+]
+
 OR_HEADERS = {
     "Authorization": f"Bearer {OPENROUTER_API_KEY}",
     "Content-Type": "application/json",
@@ -177,63 +186,85 @@ def chat_stream():
     if not conv["messages"]:
         conv["title"] = make_title(user_message)
 
+    def try_stream(model):
+        """Bitta model bilan stream qilishga harakat qiladi. 429 bo'lsa None qaytaradi."""
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=get_headers(),
+            json={"model": model, "messages": messages,
+                  "max_tokens": 1024, "temperature": 0.7, "stream": True},
+            stream=True, timeout=30,
+        )
+        return resp
+
     def generate():
         full_response = ""
+
+        # Tanlangan model + fallback zanjiri
+        models_to_try = [model_name] + [m for m in FALLBACK_CHAIN if m != model_name]
+        used_model = model_name
+
+        resp = None
+        for attempt_model in models_to_try:
+            try:
+                log.info(f"Trying stream: {attempt_model}")
+                r = try_stream(attempt_model)
+                if r.status_code == 429:
+                    log.warning(f"429 on {attempt_model}, trying next...")
+                    r.close()
+                    continue
+                if r.status_code == 401:
+                    yield f"data: {json.dumps({'error': 'API kalit noto-g-ri. Render Environment ni tekshiring.'})}\n\n"
+                    return
+                if r.status_code != 200:
+                    r.close()
+                    continue
+                resp = r
+                used_model = attempt_model
+                log.info(f"Streaming with: {used_model}")
+                break
+            except requests.exceptions.Timeout:
+                log.warning(f"Timeout: {attempt_model}")
+                continue
+            except Exception as e:
+                log.warning(f"Error {attempt_model}: {e}")
+                continue
+
+        if resp is None:
+            yield f"data: {json.dumps({'error': 'Barcha modellar band. 30 soniya kuting va qayta yuboring.'})}\n\n"
+            return
+
         try:
-            with requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=get_headers(),
-                json={
-                    "model": model_name,
-                    "messages": messages,
-                    "max_tokens": 1024,
-                    "temperature": 0.7,
-                    "stream": True,
-                },
-                stream=True,
-                timeout=30,
-            ) as resp:
-                if resp.status_code == 429:
-                    yield f"data: {json.dumps({'error': 'Rate limit. Biroz kuting.'})}\n\n"
-                    return
-                if resp.status_code == 401:
-                    yield f"data: {json.dumps({'error': 'API kalit noto glri.'})}\n\n"
-                    return
-                if resp.status_code != 200:
-                    yield f"data: {json.dumps({'error': f'Server xatosi: {resp.status_code}'})}\n\n"
-                    return
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                line = line.decode("utf-8")
+                if not line.startswith("data: "):
+                    continue
+                chunk = line[6:]
+                if chunk == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(chunk)
+                    token = obj["choices"][0].get("delta", {}).get("content", "")
+                    if token:
+                        full_response += token
+                        yield f"data: {json.dumps({'token': token})}\n\n"
+                except Exception:
+                    continue
+        except Exception as e:
+            log.error(f"Stream read error: {e}")
+        finally:
+            resp.close()
 
-                for line in resp.iter_lines():
-                    if not line:
-                        continue
-                    line = line.decode("utf-8")
-                    if line.startswith("data: "):
-                        chunk = line[6:]
-                        if chunk == "[DONE]":
-                            break
-                        try:
-                            obj = json.loads(chunk)
-                            delta = obj["choices"][0].get("delta", {})
-                            token = delta.get("content", "")
-                            if token:
-                                full_response += token
-                                yield f"data: {json.dumps({'token': token})}\n\n"
-                        except Exception:
-                            continue
-
-            # Suhbatni saqlash
+        if full_response:
             ts = datetime.datetime.now().isoformat()
             conv["messages"].append({"role": "user", "content": user_message, "timestamp": ts})
             conv["messages"].append({"role": "assistant", "content": full_response, "timestamp": ts})
             save_conv(conv)
-
-            yield f"data: {json.dumps({'done': True, 'conv_id': conv_id, 'title': conv['title']})}\n\n"
-
-        except requests.exceptions.Timeout:
-            yield f"data: {json.dumps({'error': 'Vaqt tugadi. Qayta urinib ko glring.'})}\n\n"
-        except Exception as e:
-            log.error(f"Stream error: {e}")
-            yield f"data: {json.dumps({'error': 'Xatolik yuz berdi. Qayta urinib ko glring.'})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'conv_id': conv_id, 'title': conv['title'], 'model_used': used_model})}\n\n"
+        else:
+            yield f"data: {json.dumps({'error': 'Bo-sh javob keldi. Qayta urinib ko-ring.'})}\n\n"
 
     return Response(
         stream_with_context(generate()),
