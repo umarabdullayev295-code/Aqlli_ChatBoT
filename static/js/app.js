@@ -5,7 +5,7 @@ const state = {
   isLoading: false,
   isDarkTheme: true,
   pendingDeleteId: null,
-  selectedModel: 'meta-llama/llama-3.3-70b-instruct:free',
+  selectedModel: 'openai/gpt-oss-20b:free',
 };
 
 const $ = id => document.getElementById(id);

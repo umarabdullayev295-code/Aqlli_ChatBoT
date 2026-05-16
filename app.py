@@ -29,19 +29,20 @@ Boshqa tillarda so'rasalar o'sha tilda javob ber.
 Har doim samimiy, foydali va aniq javob ber."""
 
 MODELS = [
-    {"id": "meta-llama/llama-3.3-70b-instruct:free",  "name": "Llama 3.3 70B ⚡"},
-    {"id": "mistralai/mistral-7b-instruct:free",       "name": "Mistral 7B 🚀"},
-    {"id": "google/gemma-3-27b-it:free",               "name": "Gemma 3 27B 💎"},
-    {"id": "deepseek/deepseek-r1:free",                "name": "DeepSeek R1 🧠"},
+    {"id": "openai/gpt-oss-20b:free",                 "name": "GPT-OSS 20B ⚡ (Tez)"},
+    {"id": "openai/gpt-oss-120b:free",                "name": "GPT-OSS 120B 🧠 (Kuchli)"},
+    {"id": "meta-llama/llama-3.3-70b-instruct:free",  "name": "Llama 3.3 70B 🦙"},
+    {"id": "google/gemma-4-31b-it:free",              "name": "Gemma 4 31B 💎"},
+    {"id": "deepseek/deepseek-v4-flash:free",         "name": "DeepSeek V4 Flash 🚀"},
 ]
 
 # Rate limit bo'lganda avtomatik sinab ko'riladigan modellar
 FALLBACK_CHAIN = [
-    "mistralai/mistral-7b-instruct:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "google/gemma-3-12b-it:free",
+    "openai/gpt-oss-20b:free",
+    "openai/gpt-oss-120b:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "microsoft/phi-3-mini-128k-instruct:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "google/gemma-4-31b-it:free",
 ]
 
 OR_HEADERS = {
@@ -112,7 +113,7 @@ def test_api():
         r = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers=get_headers(),
-            json={"model": "mistralai/mistral-7b-instruct:free",
+            json={"model": "openai/gpt-oss-20b:free",
                   "messages": [{"role": "user", "content": "Say OK"}],
                   "max_tokens": 10},
             timeout=15,
@@ -166,7 +167,7 @@ def chat_stream():
     data = request.json or {}
     user_message = data.get("message", "").strip()
     conv_id = data.get("conversation_id") or str(uuid.uuid4())
-    model_name = data.get("model", "meta-llama/llama-3.3-70b-instruct:free")
+    model_name = data.get("model", "openai/gpt-oss-20b:free")
 
     if not user_message:
         return jsonify({"error": "Xabar bo'sh"}), 400
