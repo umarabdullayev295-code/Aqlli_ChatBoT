@@ -159,11 +159,13 @@ def chat():
 
     try:
         client = get_client()
+        timeout = 90 if "deepseek" in model_name or "qwq" in model_name else 30
         response = client.chat.completions.create(
             model=model_name,
             messages=messages,
             max_tokens=2048,
             temperature=0.7,
+            timeout=timeout,
         )
         assistant_message = response.choices[0].message.content
 
