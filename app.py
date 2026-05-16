@@ -2,10 +2,13 @@ import os
 import json
 import uuid
 import datetime
+import logging
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI
+
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
@@ -41,12 +44,14 @@ MODELS = [
 ]
 
 
+SITE_URL = os.getenv("SITE_URL", "https://aqlli-chatbot.onrender.com")
+
 def get_client():
     return OpenAI(
         api_key=OPENROUTER_API_KEY,
         base_url="https://openrouter.ai/api/v1",
         default_headers={
-            "HTTP-Referer": "http://localhost:5000",
+            "HTTP-Referer": SITE_URL,
             "X-Title": "Aqlli ChatBot",
         }
     )
@@ -158,6 +163,7 @@ def chat():
     messages.append({"role": "user", "content": user_message})
 
     try:
+        logging.info(f"Chat: model={model_name}, key_set={bool(OPENROUTER_API_KEY)}")
         client = get_client()
         timeout = 90 if "deepseek" in model_name or "qwq" in model_name else 30
         response = client.chat.completions.create(
@@ -193,6 +199,7 @@ def chat():
 
     except Exception as e:
         err = str(e)
+        logging.error(f"Chat error: {err}")
         if "401" in err or "authentication" in err.lower():
             return jsonify({"error": "API kalit noto'g'ri."}), 401
         if "429" in err or "rate" in err.lower():

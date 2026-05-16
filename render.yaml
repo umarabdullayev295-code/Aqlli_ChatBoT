@@ -12,3 +12,5 @@ services:
         generateValue: true
       - key: FLASK_ENV
         value: production
+      - key: SITE_URL
+        value: https://aqlli-chatbot.onrender.com
